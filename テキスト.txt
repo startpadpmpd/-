@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>わくわく！わり算の筆算マスター</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=MURECHO:wght@400;700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Zen Maru Gothic', sans-serif;
+            background-color: #f0fdf4;
+            user-select: none;
+        }
+
+        /* 筆算グリッドのスタイリング */
+        .hissan-grid {
+            display: grid;
+            gap: 2px;
+            font-family: 'MURECHO', monospace;
+            font-weight: 800;
+        }
+
+        .cell {
+            width: 44px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            border-radius: 8px;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        @media (min-width: 640px) {
+            .cell {
+                width: 52px;
+                height: 56px;
+                font-size: 1.8rem;
+            }
+        }
+
+        .cell-input {
+            background-color: #ffffff;
+            border: 2px solid #cbd5e1;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+            cursor: pointer;
+        }
+
+        .cell-input.active {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+            animation: pulse-border 1.5s infinite;
+        }
+
+        .cell-input.correct {
+            background-color: #dcfce7;
+            border-color: #22c55e;
+            color: #15803d;
+        }
+
+        .cell-input.error {
+            background-color: #fee2e2;
+            border-color: #ef4444;
+            color: #b91c1c;
+            animation: shake 0.3s;
+        }
+
+        .cell-fixed {
+            color: #1e293b;
+            font-weight: 900;
+        }
+
+        /* 割り算記号の線 */
+        .hissan-border-top {
+            border-top: 4px solid #334155;
+        }
+
+        .hissan-border-left {
+            border-left: 4px solid #334155;
+            border-top-left-radius: 12px;
+        }
+
+        .hissan-line {
+            border-bottom: 3px solid #475569;
+        }
+
+        @keyframes pulse-border {
+            0%, 100% { border-color: #3b82f6; }
+            50% { border-color: #60a5fa; }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); }
+            40%, 80% { transform: translateX(4px); }
+        }
+
+        .step-badge {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .bounce-gentle {
+            animation: bounceGentle 2s infinite;
+        }
+
+        @keyframes bounceGentle {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col justify-between pb-6">
+
+    <!-- ヘッダー -->
+    <header class="bg-emerald-500 text-white shadow-md">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-2">
+                <span class="text-3xl">✏️</span>
+                <h1 class="text-xl sm:text-2xl font-extrabold tracking-wide">わり算の筆算マスター</h1>
+                <span class="bg-amber-300 text-amber-900 text-xs px-2 py-0.5 rounded-full font-bold">小4向け</span>
+            </div>
+            
+            <!-- サウンド切り替え & スコア -->
+            <div class="flex items-center gap-3">
+                <div id="score-display" class="bg-emerald-600 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
+                    <span>⭐ できた:</span>
+                    <span id="score-count" class="text-yellow-300 text-lg">0</span>
+                    <span>もん</span>
+                </div>
+                <button id="btn-sound" onclick="toggleSound()" class="bg-emerald-600 hover:bg-emerald-700 w-9 h-9 rounded-full flex items-center justify-center transition">
+                    <i class="fas fa-volume-up text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto w-full px-3 py-4 flex-grow flex flex-col gap-4">
+        
+        <!-- モード選択タブ -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-sm font-bold">
+            <button onclick="switchMode('guide')" id="tab-guide" class="mode-tab bg-white border-2 border-emerald-400 text-emerald-700 py-2 rounded-xl shadow-sm hover:bg-emerald-50 transition active-tab">
+                <i class="fas fa-chalkboard-teacher mr-1"></i>いっしょに練習<br><span class="text-xs font-normal opacity-80">(ガイドつき)</span>
+            </button>
+            <button onclick="switchMode('challenge')" id="tab-challenge" class="mode-tab bg-white border-2 border-slate-200 text-slate-600 py-2 rounded-xl shadow-sm hover:bg-slate-50 transition">
+                <i class="fas fa-trophy mr-1"></i>チャレンジ<br><span class="text-xs font-normal opacity-80">(じぶんで解く)</span>
+            </button>
+            <button onclick="switchMode('custom')" id="tab-custom" class="mode-tab bg-white border-2 border-slate-200 text-slate-600 py-2 rounded-xl shadow-sm hover:bg-slate-50 transition">
+                <i class="fas fa-edit mr-1"></i>じぶんで問題作成<br><span class="text-xs font-normal opacity-80">(自由入力)</span>
+            </button>
+            <button onclick="switchMode('rule')" id="tab-rule" class="mode-tab bg-white border-2 border-slate-200 text-slate-600 py-2 rounded-xl shadow-sm hover:bg-slate-50 transition">
+                <i class="fas fa-lightbulb mr-1"></i>やり方のコツ<br><span class="text-xs font-normal opacity-80">(解説)</span>
+            </button>
+        </div>
+
+        <!-- レベル設定コントロール (ガイド/チャレンジ用) -->
+        <div id="level-selector-box" class="bg-white p-3 rounded-2xl shadow-sm border border-emerald-100 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-500">レベル:</span>
+                <select id="level-select" onchange="changeLevel()" class="bg-slate-50 border border-slate-300 font-bold rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                    <option value="1">レベル1: (2けた) ÷ (1けた) 例: 84÷3</option>
+                    <option value="2">レベル2: (3けた) ÷ (1けた) 例: 624÷4</option>
+                    <option value="3">レベル3: (2けた) ÷ (2けた) 例: 85÷21</option>
+                    <option value="4">レベル4: (3けた) ÷ (2けた) 例: 432÷18</option>
+                </select>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <label class="inline-flex items-center cursor-pointer text-xs font-bold text-slate-600">
+                    <input type="checkbox" id="remainder-toggle" class="sr-only peer" onchange="changeLevel()" checked>
+                    <div class="relative w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                    <span class="ms-2">あまりありも出す</span>
+                </label>
+
+                <button onclick="generateNewProblem()" class="bg-amber-400 hover:bg-amber-500 text-amber-950 font-extrabold px-4 py-1.5 rounded-xl shadow hover:shadow-md transition flex items-center gap-1 active:scale-95 text-sm">
+                    <i class="fas fa-sync-alt"></i> つぎの問題
+                </button>
+            </div>
+        </div>
+
+        <!-- じぶんで問題作成の入力ボックス -->
+        <div id="custom-problem-box" class="hidden bg-white p-4 rounded-2xl shadow-sm border border-purple-100 flex flex-wrap items-center justify-center gap-3">
+            <span class="font-bold text-slate-700">問題をつくる：</span>
+            <input type="number" id="custom-dividend" min="10" max="999" value="84" class="w-20 text-center border-2 border-purple-300 rounded-xl p-1.5 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-purple-400">
+            <span class="font-bold text-lg text-slate-600">÷</span>
+            <input type="number" id="custom-divisor" min="2" max="99" value="3" class="w-16 text-center border-2 border-purple-300 rounded-xl p-1.5 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-purple-400">
+            <button onclick="startCustomProblem()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-2 rounded-xl shadow transition">
+                この問題をとく！
+            </button>
+        </div>
+
+        <!-- メインワークスペース (筆算表示 & ガイド) -->
+        <div id="workspace" class="grid grid-cols-1 md:grid-cols-12 gap-4 flex-grow">
+            
+            <!-- 筆算エリア (左・中央) -->
+            <div class="md:col-span-7 bg-white p-4 sm:p-6 rounded-3xl shadow-md border border-emerald-100 flex flex-col items-center justify-between min-h-[380px] relative">
+                
+                <!-- 問題の数式表示 -->
+                <div id="problem-expression" class="text-2xl sm:text-3xl font-black text-slate-700 bg-emerald-50 px-6 py-2 rounded-2xl border border-emerald-200 tracking-wider">
+                    84 ÷ 3 = ?
+                </div>
+
+                <!-- 筆算格子ボード -->
+                <div class="my-auto py-4 overflow-x-auto w-full flex justify-center">
+                    <div id="hissan-board" class="hissan-grid p-2">
+                        <!-- JavaScriptで動的にマス目を生成 -->
+                    </div>
+                </div>
+
+                <!-- メッセージ・ステータスバー -->
+                <div id="status-bar" class="w-full text-center py-2 px-4 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm min-h-[40px] flex items-center justify-center">
+                    水色の枠に数字を入れよう！
+                </div>
+            </div>
+
+            <!-- ガイド・テンキーエリア (右) -->
+            <div class="md:col-span-5 flex flex-col gap-3">
+                
+                <!-- 4つの合言葉ステップインジケーター (ガイドモード時表示) -->
+                <div id="step-indicators" class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 grid grid-cols-4 gap-1 text-center font-extrabold text-xs">
+                    <div id="step-badge-tateru" class="step-badge bg-slate-100 text-slate-400 py-1.5 rounded-lg border">
+                        ① たてる
+                    </div>
+                    <div id="step-badge-kakeru" class="step-badge bg-slate-100 text-slate-400 py-1.5 rounded-lg border">
+                        ② かける
+                    </div>
+                    <div id="step-badge-hiku" class="step-badge bg-slate-100 text-slate-400 py-1.5 rounded-lg border">
+                        ③ ひく
+                    </div>
+                    <div id="step-badge-orosu" class="step-badge bg-slate-100 text-slate-400 py-1.5 rounded-lg border">
+                        ④ おろす
+                    </div>
+                </div>
+
+                <!-- マスコット & ヒント吹き出し -->
+                <div class="bg-gradient-to-r from-amber-50 to-orange-50 p-3 sm:p-4 rounded-2xl border border-amber-200 shadow-sm flex items-start gap-3 relative">
+                    <div class="text-3xl bounce-gentle flex-shrink-0">🦊</div>
+                    <div class="flex-grow">
+                        <div class="text-xs font-bold text-amber-700 mb-0.5">きつね先生のヒント</div>
+                        <div id="hint-text" class="text-xs sm:text-sm text-slate-700 font-medium leading-relaxed">
+                            まずは、わられる数の一番上の桁から考えよう！
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 画面テンキー (操作ボタン) -->
+                <div class="bg-slate-800 p-3 sm:p-4 rounded-2xl shadow-md flex-grow flex flex-col justify-between">
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="pressKey('7')" class="key-btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-extrabold text-xl py-3 rounded-xl shadow transition">7</button>
+                        <button onclick="pressKey('8')" class="key-btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-extrabold text-xl py-3 rounded-xl shadow transition">8</button>
+                        <button onclick="pressKey('9')" class="key-btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-extrabold text-xl py-3 rounded-xl shadow transition">9</button>
+                        <button onclick="pressKey('4')" class="key-btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-extrabold text-xl py-3 rounded-xl shadow transition">4</button>
+                        <button onclick="pressKey('5')" class="key-btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-extrabold text-xl py-3 rounded-xl shadow transition">5</button>
+                        <button onclick="pressKey('6')" class="key-btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-extrabold text-xl py-3 rounded-xl shadow transition">6</button>
+                        <button onclick="pressKey('1')" class="key-btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-extrabold text-xl py-3 rounded-xl shadow transition">1</button>
+                        <button onclick="pressKey('2')" class="key-btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-extrabold text-xl py-3 rounded-xl shadow transition">2</button>
+                        <button onclick="pressKey('3')" class="key-btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-extrabold text-xl py-3 rounded-xl shadow transition">3</button>
+                        <button onclick="pressKey('0')" class="key-btn bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-extrabold text-xl py-3 rounded-xl shadow transition">0</button>
+                        <button onclick="pressKey('backspace')" class="bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-bold text-sm py-3 rounded-xl shadow transition flex items-center justify-center">
+                            <i class="fas fa-backspace text-lg"></i>
+                        </button>
+                        <button onclick="pressKey('enter')" class="bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white font-extrabold text-sm py-3 rounded-xl shadow transition col-span-1 flex items-center justify-center gap-1">
+                            けってい <i class="fas fa-check"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- やり方解説パネル (初期は隠し) -->
+        <div id="rule-panel" class="hidden bg-white p-6 rounded-3xl shadow-md border border-emerald-100 flex flex-col gap-4">
+            <h2 class="text-xl font-black text-emerald-700 flex items-center gap-2">
+                <span>💡</span> 割り算の筆算「4つのじゅもん」
+            </h2>
+            <p class="text-slate-600 text-sm">割り算の筆算は、次の4つのステップを順番にくり返せば、どんな大きな計算でもできるようになるよ！</p>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 my-2">
+                <div class="bg-blue-50 border-2 border-blue-200 p-4 rounded-2xl">
+                    <div class="font-extrabold text-blue-700 text-lg mb-1">① たてる</div>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        割られる数の上の桁からみて、割る数が「何回はいるか（答えの数字）」を上の「商」のマスに書きます。
+                    </p>
+                </div>
+                <div class="bg-amber-50 border-2 border-amber-200 p-4 rounded-2xl">
+                    <div class="font-extrabold text-amber-700 text-lg mb-1">② かける</div>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        「たてた数字」と「わる数」をかけ算して、下に書きます。
+                    </p>
+                </div>
+                <div class="bg-rose-50 border-2 border-rose-200 p-4 rounded-2xl">
+                    <div class="font-extrabold text-rose-700 text-lg mb-1">③ ひく</div>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        上の数から、②でかけた数をひき算して、あまりを出します。
+                    </p>
+                </div>
+                <div class="bg-emerald-50 border-2 border-emerald-200 p-4 rounded-2xl">
+                    <div class="font-extrabold text-emerald-700 text-lg mb-1">④ おろす</div>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        割られる数の次の桁の数字を、まっすぐ下に降ろしてきます。そのあと、①へ戻ります！
+                    </p>
+                </div>
+            </div>
+
+            <div class="text-center pt-2">
+                <button onclick="switchMode('guide')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold px-6 py-2.5 rounded-2xl shadow transition">
+                    さっそく「いっしょに練習」してみる！
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- フッター -->
+    <footer class="text-center text-xs text-slate-400 py-2">
+        小学校4年生向け 算数学習アプリ・あまりのある割り算対応
+    </footer>
+
+    <script>
+        /* Web Audio API Sound Engine */
+        let audioCtx = null;
+        let soundEnabled = true;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'correct') {
+                // 正解のチャイム (ピンポン)
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.setValueAtTime(659.25, now + 0.12); // E5
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            } else if (type === 'wrong') {
+                // 失敗音 (ブッ)
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.setValueAtTime(120, now + 0.1);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } else if (type === 'click') {
+                // タップ音
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(400, now);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } else if (type === 'clear') {
+                // ファンファーレ（全問クリア）
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    o.frequency.value = freq;
+                    g.gain.setValueAtTime(0.15, now + idx * 0.1);
+                    g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.3);
+                    o.start(now + idx * 0.1);
+                    o.stop(now + idx * 0.1 + 0.3);
+                });
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const btn = document.getElementById('btn-sound');
+            btn.innerHTML = soundEnabled ? '<i class="fas fa-volume-up text-lg"></i>' : '<i class="fas fa-volume-mute text-lg opacity-60"></i>';
+        }
+
+        // アプリケーションの状態
+        let currentMode = 'guide'; // 'guide', 'challenge', 'custom', 'rule'
+        let currentLevel = 1;
+        let allowRemainder = true;
+        let score = 0;
+
+        let dividend = 84;  // わられる数
+        let divisor = 3;    // わる数
+        let steps = [];     // 解法ステップの配列
+        let currentStepIndex = 0;
+        let userInputs = {}; // マスID -> ユーザー入力値
+        let activeCellId = null;
+
+        // ページロード時の初期化
+        window.onload = function() {
+            generateNewProblem();
+            setupKeyboardListener();
+        };
+
+        // 鍵盤キー入力の受付
+        function setupKeyboardListener() {
+            document.addEventListener('keydown', (e) => {
+                if (currentMode === 'rule') return;
+                if (e.key >= '0' && e.key <= '9') {
+                    pressKey(e.key);
+                } else if (e.key === 'Backspace') {
+                    pressKey('backspace');
+                } else if (e.key === 'Enter') {
+                    pressKey('enter');
+                }
+            });
+        }
+
+        // モード切替
+        function switchMode(mode) {
+            playSound('click');
+            currentMode = mode;
+            
+            // タブの見た目の更新
+            document.querySelectorAll('.mode-tab').forEach(tab => {
+                tab.classList.remove('bg-emerald-50', 'border-emerald-400', 'text-emerald-700');
+                tab.classList.add('bg-white', 'border-slate-200', 'text-slate-600');
+            });
+
+            const activeTab = document.getElementById(`tab-${mode}`);
+            if (activeTab) {
+                activeTab.classList.remove('bg-white', 'border-slate-200', 'text-slate-600');
+                activeTab.classList.add('bg-emerald-50', 'border-emerald-400', 'text-emerald-700');
+            }
+
+            // 表示のコントロール
+            const levelBox = document.getElementById('level-selector-box');
+            const customBox = document.getElementById('custom-problem-box');
+            const workspace = document.getElementById('workspace');
+            const rulePanel = document.getElementById('rule-panel');
+
+            if (mode === 'rule') {
+                levelBox.classList.add('hidden');
+                customBox.classList.add('hidden');
+                workspace.classList.add('hidden');
+                rulePanel.classList.remove('hidden');
+            } else if (mode === 'custom') {
+                levelBox.classList.add('hidden');
+                customBox.classList.remove('hidden');
+                workspace.classList.remove('hidden');
+                rulePanel.classList.add('hidden');
+            } else {
+                levelBox.classList.remove('hidden');
+                customBox.classList.add('hidden');
+                workspace.classList.remove('hidden');
+                rulePanel.classList.add('hidden');
+                generateNewProblem();
+            }
+        }
+
+        function changeLevel() {
+            currentLevel = parseInt(document.getElementById('level-select').value);
+            allowRemainder = document.getElementById('remainder-toggle').checked;
+            generateNewProblem();
+        }
+
+        // ランダム問題の作成
+        function generateNewProblem() {
+            playSound('click');
+            let div, dor;
+
+            // レベルごとの数値生成
+            if (currentLevel === 1) { // 2桁÷1桁
+                dor = Math.floor(Math.random() * 8) + 2; // 2~9
+                if (allowRemainder) {
+                    div = Math.floor(Math.random() * 80) + 15; // 15~94
+                } else {
+                    const q = Math.floor(Math.random() * 25) + 10;
+                    div = dor * q;
+                    if (div > 99) div = dor * Math.floor(99 / dor);
+                }
+            } else if (currentLevel === 2) { // 3桁÷1桁
+                dor = Math.floor(Math.random() * 8) + 2;
+                if (allowRemainder) {
+                    div = Math.floor(Math.random() * 800) + 100; // 100~899
+                } else {
+                    const q = Math.floor(Math.random() * 200) + 50;
+                    div = dor * q;
+                    if (div > 999) div = dor * Math.floor(999 / dor);
+                }
+            } else if (currentLevel === 3) { // 2桁÷2桁
+                dor = Math.floor(Math.random() * 80) + 11; // 11~90
+                const maxQ = Math.floor(99 / dor);
+                const q = Math.max(1, Math.floor(Math.random() * maxQ) + 1);
+                if (allowRemainder) {
+                    const rem = Math.floor(Math.random() * dor);
+                    div = Math.min(99, dor * q + rem);
+                } else {
+                    div = dor * q;
+                }
+            } else { // 3桁÷2桁
+                dor = Math.floor(Math.random() * 80) + 12; // 12~91
+                if (allowRemainder) {
+                    div = Math.floor(Math.random() * 800) + 150; // 150~949
+                } else {
+                    const q = Math.floor(Math.random() * 40) + 10;
+                    div = dor * q;
+                    if (div > 999) div = dor * Math.floor(999 / dor);
+                }
+            }
+
+            // 簡単すぎる問題の回避
+            if (div < dor) div = dor + Math.floor(Math.random() * 20) + 5;
+
+            dividend = div;
+            divisor = dor;
+
+            initProblem();
+        }
+
+        function startCustomProblem() {
+            const divInput = parseInt(document.getElementById('custom-dividend').value);
+            const dorInput = parseInt(document.getElementById('custom-divisor').value);
+
+            if (isNaN(divInput) || isNaN(dorInput) || dorInput <= 0 || divInput < dorInput) {
+                alert('正しく「わられる数」と「わる数（わられる数より小さい数）」を入力してね！');
+                return;
+            }
+
+            dividend = divInput;
+            divisor = dorInput;
+            initProblem();
+        }
+
+        // 筆算の全ステップ解法を計算構築
+        function solveHissan(div, dor) {
+            const divStr = div.toString();
+            const dorStr = dor.toString();
+
+            const numDivDigits = divStr.length;
+            const numDorDigits = dorStr.length;
+
+            let stepList = [];
+            let currentVal = 0;
+            let quotientStr = "";
+
+            // グリッドサイズの計算
+            // 列数: わる数桁 + 1 + わられる数桁 + 1
+            const cols = numDorDigits + 1 + numDivDigits + 1;
+            
+            // 各パートの計算
+            let gridMap = {}; // (row, col) -> { val, type, stepIndex }
+            
+            // 行の割り当て
+            // Row 0: 商 (Quotient)
+            // Row 1: わられる数 & わる数 (Dividend & Divisor)
+            
+            let divStartCol = numDorDigits + 1; // わられる数の開始列
+            let dorStartCol = 0; // わる数の開始列
+
+            // Step構築
+            let currentGridRow = 2; // かけ算結果を書く最初の行
+            
+            let tempValStr = "";
+            let processedDigits = 0;
+
+            for (let i = 0; i < numDivDigits; i++) {
+                tempValStr += divStr[i];
+                let curVal = parseInt(tempValStr);
+                let colPos = divStartCol + i; // 現在処理中の桁の列
+
+                if (curVal < dor) {
+                    // 商がたたない場合（ただし先頭でない場合、または最後までいったら0）
+                    if (quotientStr.length > 0) {
+                        quotientStr += "0";
+                        stepList.push({
+                            type: 'tateru',
+                            val: 0,
+                            row: 0,
+                            col: colPos,
+                            hint: `${curVal}の中に${dor}は入らないので「0」をたてるよ。`,
+                            targetCellId: `r0c${colPos}`
+                        });
+                    }
+                    continue;
+                }
+
+                // ① たてる
+                let qDigit = Math.floor(curVal / dor);
+                quotientStr += qDigit.toString();
+                
+                stepList.push({
+                    type: 'tateru',
+                    val: qDigit,
+                    row: 0,
+                    col: colPos,
+                    hint: `${curVal} の中に ${dor} は何回はいるかな？ 商は「${qDigit}」をたてるよ！`,
+                    targetCellId: `r0c${colPos}`
+                });
+
+                // ② かける
+                let prod = qDigit * dor;
+                let prodStr = prod.toString();
+                let prodStartCol = colPos - prodStr.length + 1;
+                
+                let prodCellIds = [];
+                for (let p = 0; p < prodStr.length; p++) {
+                    let pCol = prodStartCol + p;
+                    let pVal = parseInt(prodStr[p]);
+                    prodCellIds.push({ row: currentGridRow, col: pCol, val: pVal, id: `r${currentGridRow}c${pCol}` });
+                }
+
+                stepList.push({
+                    type: 'kakeru',
+                    vals: prodCellIds,
+                    hint: `たてた「${qDigit}」と わる数「${dor}」をかけるよ。 ${qDigit} × ${dor} = ${prod}`,
+                });
+
+                // ③ ひく
+                let rem = curVal - prod;
+                let remStr = rem.toString();
+                let remStartCol = colPos - remStr.length + 1;
+                currentGridRow++; // 引き算結果の行
+
+                let remCellIds = [];
+                for (let r = 0; r < remStr.length; r++) {
+                    let rCol = remStartCol + r;
+                    let rVal = parseInt(remStr[r]);
+                    remCellIds.push({ row: currentGridRow, col: rCol, val: rVal, id: `r${currentGridRow}c${rCol}` });
+                }
+
+                stepList.push({
+                    type: 'hiku',
+                    vals: remCellIds,
+                    lineAtRow: currentGridRow - 1, // 引き算の横線を表示する行
+                    lineStartCol: prodStartCol,
+                    lineEndCol: colPos,
+                    hint: `ひき算をするよ。 ${curVal} - ${prod} = ${rem}`,
+                });
+
+                // 次の桁をおろす準備
+                if (i < numDivDigits - 1) {
+                    let nextDigit = divStr[i + 1];
+                    let nextCol = divStartCol + i + 1;
+                    
+                    stepList.push({
+                        type: 'orosu',
+                        val: parseInt(nextDigit),
+                        row: currentGridRow,
+                        col: nextCol,
+                        hint: `つぎの桁の「${nextDigit}」をまっすぐ下におろしてこよう！`,
+                        targetCellId: `r${currentGridRow}c${nextCol}`
+                    });
+
+                    tempValStr = rem.toString(); // あまり + 次のおろした数字（ループで追加される）
+                    currentGridRow++;
+                } else {
+                    // 終了
+                }
+            }
+
+            return {
+                steps: stepList,
+                numRows: currentGridRow + 1,
+                numCols: cols,
+                divStartCol: divStartCol,
+                dorStartCol: dorStartCol,
+                finalQuotient: Math.floor(div / dor),
+                finalRemainder: div % dor
+            };
+        }
+
+        // 筆算ボードの描画初期化
+        function initProblem() {
+            userInputs = {};
+            currentStepIndex = 0;
+
+            const solution = solveHissan(dividend, divisor);
+            steps = solution.steps;
+
+            // 数式表示のアップデート
+            document.getElementById('problem-expression').innerText = `${dividend} ÷ ${divisor} = ?`;
+
+            const board = document.getElementById('hissan-board');
+            board.innerHTML = '';
+
+            const numRows = solution.numRows;
+            const numCols = solution.numCols;
+
+            board.style.gridTemplateColumns = `repeat(${numCols}, minmax(0, 1fr))`;
+
+            // 空のグリッドを作成
+            for (let r = 0; r < numRows; r++) {
+                for (let c = 0; c < numCols; c++) {
+                    const cell = document.createElement('div');
+                    cell.id = `cell-r${r}c${c}`;
+                    cell.className = 'cell';
+
+                    // わる数の配置 (Row 1, dorStartCol...)
+                    const dorStr = divisor.toString();
+                    if (r === 1 && c >= solution.dorStartCol && c < solution.dorStartCol + dorStr.length) {
+                        cell.innerText = dorStr[c - solution.dorStartCol];
+                        cell.classList.add('cell-fixed');
+                    }
+
+                    // わられる数の配置 (Row 1, divStartCol...)
+                    const divStr = dividend.toString();
+                    if (r === 1 && c >= solution.divStartCol && c < solution.divStartCol + divStr.length) {
+                        cell.innerText = divStr[c - solution.divStartCol];
+                        cell.classList.add('cell-fixed');
+                        cell.classList.add('hissan-border-top'); // 上線（割る記号の横棒）
+                        if (c === solution.divStartCol) {
+                            cell.classList.add('hissan-border-left'); // 左カーブ線
+                        }
+                    }
+
+                    board.appendChild(cell);
+                }
+            }
+
+            updateStepUI();
+        }
+
+        // 現在のステップに基づいてUI（アクティブセル、ヒント、合言葉）を更新
+        function updateStepUI() {
+            // すべての入力セルのアクティブ状態解除
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.classList.remove('active');
+            });
+
+            if (currentStepIndex >= steps.length) {
+                // すべて完了！
+                onProblemComplete();
+                return;
+            }
+
+            const step = steps[currentStepIndex];
+            
+            // 合言葉バッジの更新
+            updateBadgeUI(step.type);
+
+            // ヒント文の更新
+            const hintText = document.getElementById('hint-text');
+            if (currentMode === 'guide') {
+                hintText.innerText = step.hint;
+            } else {
+                hintText.innerText = 'つぎのマスの数字をかんがえて入力しよう！';
+            }
+
+            // 引き算の横線の描画 (もしあれば)
+            if (step.type === 'hiku' && step.lineAtRow) {
+                for (let c = step.lineStartCol; c <= step.lineEndCol; c++) {
+                    const lineCell = document.getElementById(`cell-r${step.lineAtRow}c${c}`);
+                    if (lineCell) lineCell.classList.add('hissan-line');
+                }
+            }
+
+            // アクティブな入力ターゲットの設定
+            let targetIds = [];
+            if (step.type === 'tateru' || step.type === 'orosu') {
+                targetIds.push(step.targetCellId);
+            } else if (step.type === 'kakeru' || step.type === 'hiku') {
+                step.vals.forEach(v => targetIds.push(v.id));
+            }
+
+            targetIds.forEach(id => {
+                const cell = document.getElementById(`cell-${id}`);
+                if (cell) {
+                    cell.classList.add('cell-input', 'active');
+                    if (userInputs[id] !== undefined) {
+                        cell.innerText = userInputs[id];
+                    } else {
+                        cell.innerText = '';
+                    }
+                }
+            });
+
+            activeCellId = targetIds[0]; // 単一のフォーカス対象
+            
+            document.getElementById('status-bar').className = "w-full text-center py-2 px-4 rounded-xl bg-blue-100 text-blue-800 font-bold text-sm min-h-[40px] flex items-center justify-center";
+            document.getElementById('status-bar').innerText = "数字を選んで「けってい」を押してね！";
+        }
+
+        // バッジのハイライト
+        function updateBadgeUI(stepType) {
+            ['tateru', 'kakeru', 'hiku', 'orosu'].forEach(t => {
+                const badge = document.getElementById(`step-badge-${t}`);
+                if (t === stepType) {
+                    badge.className = 'step-badge bg-amber-400 text-amber-950 py-1.5 rounded-lg border-2 border-amber-500 shadow scale-105 font-black';
+                } else {
+                    badge.className = 'step-badge bg-slate-100 text-slate-400 py-1.5 rounded-lg border';
+                }
+            });
+        }
+
+        // テンキー入力処理
+        function pressKey(key) {
+            if (currentStepIndex >= steps.length) return;
+
+            const step = steps[currentStepIndex];
+
+            if (key === 'backspace') {
+                playSound('click');
+                if (activeCellId) {
+                    delete userInputs[activeCellId];
+                    const cell = document.getElementById(`cell-${activeCellId}`);
+                    if (cell) cell.innerText = '';
+                }
+                return;
+            }
+
+            if (key === 'enter') {
+                verifyStep();
+                return;
+            }
+
+            // 数字キー入力
+            if (key >= '0' && key <= '9') {
+                playSound('click');
+                // 複数入力ターゲットがある場合、現在空のマスに入力
+                let targetIds = [];
+                if (step.type === 'tateru' || step.type === 'orosu') {
+                    targetIds.push(step.targetCellId);
+                } else if (step.type === 'kakeru' || step.type === 'hiku') {
+                    step.vals.forEach(v => targetIds.push(v.id));
+                }
+
+                // 選択されているマスまたは最初の未入力マスへ
+                let fillId = targetIds.find(id => userInputs[id] === undefined) || targetIds[targetIds.length - 1];
+                userInputs[fillId] = parseInt(key);
+                
+                const cell = document.getElementById(`cell-${fillId}`);
+                if (cell) cell.innerText = key;
+                
+                // もし次の未入力マスがあればフォーカス移動
+                let nextEmpty = targetIds.find(id => userInputs[id] === undefined);
+                if (nextEmpty) {
+                    activeCellId = nextEmpty;
+                }
+            }
+        }
+
+        // 入力答え合わせ
+        function verifyStep() {
+            const step = steps[currentStepIndex];
+            let isCorrect = true;
+
+            if (step.type === 'tateru' || step.type === 'orosu') {
+                const inputVal = userInputs[step.targetCellId];
+                if (inputVal !== step.val) {
+                    isCorrect = false;
+                }
+            } else if (step.type === 'kakeru' || step.type === 'hiku') {
+                step.vals.forEach(v => {
+                    if (userInputs[v.id] !== v.val) {
+                        isCorrect = false;
+                    }
+                });
+            }
+
+            if (isCorrect) {
+                // 正解！
+                playSound('correct');
+                
+                // マスを正解デザインにして固定
+                let targetIds = [];
+                if (step.type === 'tateru' || step.type === 'orosu') targetIds.push(step.targetCellId);
+                else step.vals.forEach(v => targetIds.push(v.id));
+
+                targetIds.forEach(id => {
+                    const cell = document.getElementById(`cell-${id}`);
+                    if (cell) {
+                        cell.classList.remove('active', 'cell-input');
+                        cell.classList.add('cell-fixed', 'text-emerald-600');
+                    }
+                });
+
+                currentStepIndex++;
+                updateStepUI();
+
+            } else {
+                // 不正解
+                playSound('wrong');
+                document.getElementById('status-bar').className = "w-full text-center py-2 px-4 rounded-xl bg-rose-100 text-rose-800 font-bold text-sm min-h-[40px] flex items-center justify-center animate-bounce";
+                document.getElementById('status-bar').innerText = "おしい！もういちど数字をたしかめてみよう！";
+
+                let targetIds = [];
+                if (step.type === 'tateru' || step.type === 'orosu') targetIds.push(step.targetCellId);
+                else step.vals.forEach(v => targetIds.push(v.id));
+
+                targetIds.forEach(id => {
+                    const cell = document.getElementById(`cell-${id}`);
+                    if (cell) {
+                        cell.classList.add('error');
+                        setTimeout(() => cell.classList.remove('error'), 500);
+                    }
+                });
+            }
+        }
+
+        // 問題クリア時の処理
+        function onProblemComplete() {
+            playSound('clear');
+            score++;
+            document.getElementById('score-count').innerText = score;
+
+            const rem = dividend % divisor;
+            const q = Math.floor(dividend / divisor);
+            const ansStr = rem === 0 ? `商: ${q}` : `商: ${q} あまり ${rem}`;
+
+            document.getElementById('status-bar').className = "w-full text-center py-2 px-4 rounded-xl bg-emerald-500 text-white font-extrabold text-base min-h-[40px] flex items-center justify-center shadow-lg";
+            document.getElementById('status-bar').innerText = `🎉 だいせいかい！ (${ansStr})`;
+
+            document.getElementById('hint-text').innerText = "すごい！かんぺきに解けたね！「つぎの問題」ボタンを押してチャレンジしよう！";
+            
+            // バッジのハイライト全解除
+            ['tateru', 'kakeru', 'hiku', 'orosu'].forEach(t => {
+                const badge = document.getElementById(`step-badge-${t}`);
+                badge.className = 'step-badge bg-emerald-100 text-emerald-700 font-bold py-1.5 rounded-lg border border-emerald-300';
+            });
+        }
+    </script>
+</body>
+</html>
+
